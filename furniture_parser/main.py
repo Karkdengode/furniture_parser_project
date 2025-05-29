@@ -29,8 +29,8 @@ async def parse_file(
     if type == "pdf":
         result = parse_pdf(temp_filename)
     elif type == "ifc":
-    from furniture_parser.ifc_parser import parse_ifc_file
-    result = parse_ifc_file(temp_filename)
+        from furniture_parser.ifc_parser import parse_ifc_file
+        result = parse_ifc_file(temp_filename)
 
     else:
         return JSONResponse(status_code=400, content={"error": "Unsupported file type"})
