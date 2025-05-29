@@ -1,15 +1,19 @@
 # IFC parsing logic using ifcopenshell
+# IFC parsing logic using ifcopenshell
+
 import ifcopenshell
 
 def parse_ifc_file(file_path: str):
     model = ifcopenshell.open(file_path)
 
-    # Hent både IfcSpace og IfcZone hvis tilgjengelig
+    # Forsøk å hente IfcSpace, eller bruk IfcZone som fallback
     spaces = model.by_type("IfcSpace") or model.by_type("IfcZone")
 
-    # 🔁 Hvis ingen rom ble funnet, returner fallback-data
+    # 🚨 Fallback hvis ingen rom finnes
     if not spaces:
+        print("[parser] Ingen IfcSpace funnet – returnerer fallback-data")
         return {
+            "fallback": True,
             "rooms": [
                 {
                     "room_name": "Fallback Room",
@@ -25,25 +29,34 @@ def parse_ifc_file(file_path: str):
     rooms = []
 
     for space in spaces:
-        room_name = getattr(space, "Name", None) or getattr(space, "LongName", None) or "Unnamed"
-        area = None
-        if hasattr(space, "Area") and space.Area:
-            area = float(space.Area)
-        else:
-            area = 0.0  # fallback hvis ikke area er oppgitt
+        room_name = (
+            getattr(space, "Name", None)
+            or getattr(space, "LongName", None)
+            or "Unnamed"
+        )
 
-        # Fant ikke kobling mellom møbler og rom, men henter alle møbler globalt
+        area = 0.0
+        if hasattr(space, "Area") and space.Area:
+            try:
+                area = float(space.Area)
+            except:
+                area = 0.0
+
+        # Hent alle møbler i modellen (kan forbedres senere med kobling til rom)
         furniture_in_room = []
         for furniture in model.by_type("IfcFurnishingElement"):
             label = furniture.Name or furniture.ObjectType or "Unknown"
             furniture_in_room.append(label)
 
-        # Tell antall av hvert møbel
+        # Tell antall møbler
         furniture_count = {}
         for f in furniture_in_room:
             furniture_count[f] = furniture_count.get(f, 0) + 1
 
-        furniture_summary = [{"label": k, "count": v} for k, v in furniture_count.items()]
+        furniture_summary = [
+            {"label": label, "count": count}
+            for label, count in furniture_count.items()
+        ]
 
         rooms.append({
             "room_name": room_name,
@@ -51,4 +64,7 @@ def parse_ifc_file(file_path: str):
             "furniture": furniture_summary
         })
 
-    return {"rooms": rooms}
+    return {
+        "fallback": False,
+        "rooms": rooms
+    }
